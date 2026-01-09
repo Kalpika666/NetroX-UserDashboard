@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NetroX VPN | User Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: white; font-family: 'Segoe UI', sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        /* Logo එක වටේට පොඩි shadow එකක් දැම්මා ලස්සන වෙන්න */
+        .logo-shadow { filter: drop-shadow(0 0 10px rgba(59, 130, 246, 0.5)); }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="max-w-md w-full glass p-8 rounded-3xl shadow-2xl text-center">
+        <div class="mb-6 flex justify-center">
+            <img src="logo.png" alt="NetroX VPN Logo" class="w-24 h-24 object-contain logo-shadow">
+        </div>
+
+        <h1 class="text-3xl font-bold mb-2 text-blue-400">NetroX VPN</h1>
+        <p class="text-gray-400 mb-8 font-medium tracking-wide">User Dashboard</p>
+
+        <div class="space-y-4">
+            <p class="text-sm text-gray-300">Enter Your Username.</p>
+            <input type="text" id="username" placeholder="Username (e.g. Kalpika)" 
+                class="w-full p-4 rounded-xl bg-slate-800 border border-slate-700 focus:outline-none focus:border-blue-500 transition-all text-center text-lg">
+            
+            <button onclick="checkUsage()" id="btn"
+                class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-green-900/20 uppercase tracking-wider">
+                Check Data Usage
+            </button>
+        </div>
+
+        <div id="loader" class="hidden mt-6 text-blue-400 animate-pulse font-medium">
+            🔍 Checking Data...
+        </div>
+
+        <div id="result" class="hidden mt-8 space-y-4 text-left border-t border-slate-700 pt-6">
+            </div>
+    </div>
+
+    <script>
+        async function checkUsage() {
+            const user = document.getElementById('username').value;
+            const resultDiv = document.getElementById('result');
+            const loader = document.getElementById('loader');
+            const btn = document.getElementById('btn');
+
+            if(!user) {
+                alert("Please enter a username!");
+                return;
+            }
+
+            // ඔබේ WORKER LINK එක මෙතන තියෙනවා
+            const WORKER_URL = "https://calm-mountain-7897netrox-api.kalpikachampathi.workers.dev/";
+
+            loader.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(WORKER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: user.trim() })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    resultDiv.innerHTML = `<p class="text-red-400 text-center font-medium">❌ ${data.error}!</p>`;
+                    resultDiv.classList.remove('hidden');
+                } else {
+                    const up = (data.usage && data.usage.up) ? data.usage.up : 0;
+                    const down = (data.usage && data.usage.down) ? data.usage.down : 0;
+                    const totalGB = ((up + down) / (1024 ** 3)).toFixed(2);
+                    
+                    resultDiv.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="p-4 bg-slate-800/50 rounded-2xl border border-slate-700">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Amount of data used</p>
+                                <p class="text-2xl font-bold text-green-400">${totalGB} GB</p>
+                            </div>
+                            
+                            <div class="p-4 bg-slate-800/50 rounded-2xl border border-slate-700">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Expire Date</p>
+                                <p class="text-lg font-semibold text-orange-400">${data.expiry}</p>
+                            </div>
+
+                            <div class="p-4 bg-slate-800/50 rounded-2xl border border-slate-700 space-y-2">
+                                <p class="text-xs text-gray-400 uppercase tracking-wider">Your Config</p>
+                                <div class="flex gap-2 text-blue-400 text-xs break-all bg-slate-900 p-2 rounded border border-slate-700">
+                                   <input type="text" value="${data.sub_link}" id="subUrl" readonly class="bg-transparent w-full outline-none">
+                                </div>
+                                <button onclick="copyLink()" class="w-full bg-slate-700 hover:bg-slate-600 text-xs py-2 rounded-lg transition-colors">Copy Link</button>
+                            </div>
+                        </div>
+                    `;
+                    resultDiv.classList.remove('hidden');
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<p class="text-red-400 text-center">⚠️ Server Error. Please try again.</p>`;
+                resultDiv.classList.remove('hidden');
+                console.error(err);
+            } finally {
+                loader.classList.add('hidden');
+                btn.disabled = false;
+            }
+        }
+
+        function copyLink() {
+            const copyText = document.getElementById("subUrl");
+            copyText.select();
+            document.execCommand("copy");
+            alert("Config Link Copied!");
+        }
+    </script>
+</body>
+</html>
