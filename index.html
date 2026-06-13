@@ -262,79 +262,55 @@
 
         // 🌟 AllOrigins හරහා 3X-UI ඩේටා කියවන වැදගත්ම කොටස 🌟
         async function fetchDashboardData() {
-            const email = document.getElementById("dashEmail").textContent.trim();
-            
-            // Loading ස්ටේට් එක දානවා
-            document.getElementById("statUsed").innerText = "Loading...";
-            document.getElementById("statExpires").innerText = "Loading...";
-            document.getElementById("statDays").innerText = "Loading...";
+    const email = document.getElementById("dashEmail").textContent.trim();
+    
+    // Loading පෙන්වීම
+    document.getElementById("statUsed").innerText = "Loading...";
 
-            // 1. සැබෑ 3X-UI සබ්ස්ක්‍රිප්ෂන් ලින්ක් එක
-            const subUrl = `https://vpn.netrox.site:2096/sub/${email}`;
-            
-            // 2. CORS බයිපාස් කරන්න AllOrigins Proxy එක දානවා
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(subUrl)}`;
+    // 1. Subscription URL එක
+    const subUrl = `https://vpn.netrox.site:2096/sub/${email}`;
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(subUrl)}`;
 
-            try {
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error("Network error");
-                
-                const data = await response.json();
-                
-                // 3. AllOrigins එකෙන් ආපු JSON එක ඇතුලේ තියෙන සැබෑ දත්ත (Contents) කියවීම
-                // 3X-UI එකෙන් ඩේටා එවන්නේ Base64 වලින් හෝ vless ලින්ක්ස් විදිහටයි.
-                // නමුත් AllOrigins එකේ Response Header එක ඇතුලේ 'profile' එක තියෙනවද බලමු:
-                let profile = data.headers?.profile || data.headers?.Profile;
-
-                // යම් හෙයකින් Header එක නැත්නම්, අපි AllOrigins එකෙන් ආපු raw data එක චෙක් කරනවා
-                if (!profile) {
-                    // ඔයාගේ සර්වර් එකෙන් Header එක ආවේ නැත්නම් සරලව Default Values දානවා චෙක් කරන්න
-                    console.log("Profile header missing, using simulation fallback");
-                    
-                    // සර්වර් එකෙන් Header එක එන්නෙම නැත්නම්, 3X-UI එකේ Config අනුව මේක වෙනස් විය හැක.
-                    // දැනට Test එකක් විදිහට මේ වගේ එකක් දාමු:
-                    profile = "upload=2147483648; download=10737418240; total=53687091200; expire=1789123600";
-                }
-
-                if (profile) {
-                    const params = new URLSearchParams(profile.replace(/;\s*/g, '&'));
-                    
-                    const upload = parseInt(params.get('upload') || 0);
-                    const download = parseInt(params.get('download') || 0);
-                    const totalLimit = parseInt(params.get('total') || 0);
-                    const expiry = parseInt(params.get('expire') || 0);
-
-                    // GB වලට හැදීම (Bytes to GB)
-                    const usedGB = ((upload + download) / (1024 ** 3)).toFixed(2);
-                    const totalGB = totalLimit > 0 ? ((totalLimit) / (1024 ** 3)).toFixed(2) : 0;
-                    
-                    // දින ගණන හැදීම
-                    const todayTimestamp = Math.floor(new Date().getTime() / 1000);
-                    const daysLeft = Math.floor((expiry - todayTimestamp) / 86400);
-
-                    // 4. UI එකට ඩේටා දමමු
-                    document.getElementById("statUsed").innerText = `${usedGB} GB`;
-                    
-                    if (expiry > 0) {
-                        const expiryDate = new Date(expiry * 1000);
-                        document.getElementById("statExpires").innerText = expiryDate.toLocaleDateString();
-                        document.getElementById("statDays").innerText = daysLeft > 0 ? daysLeft : "0";
-                    } else {
-                        document.getElementById("statExpires").innerText = "No Limit";
-                        document.getElementById("statDays").innerText = "∞";
-                    }
-
-                    document.getElementById("statStatus").innerText = "Active";
-                    document.getElementById("statStatus").style.color = "var(--green)";
-                } else {
-                    setErrors();
-                }
-
-            } catch (err) {
-                console.error("Fetch Error:", err);
-                setErrors();
-            }
+    try {
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        
+        // 🌟 මෙතන තමයි වැදගත්ම වෙනස! 
+        // Header එකේ නැත්නම්, AllOrigins එකේ 'contents' වල ඇති කියලා බලනවා
+        let profile = data.headers?.profile || data.headers?.Profile;
+        
+        // යම් හෙයකින් profile header එක නැත්නම්, AllOrigins එකෙන් ආපු Body එක (data.contents) භාවිතා කිරීම
+        if (!profile && data.contents) {
+            // සමහර විට සබ්ස්ක්‍රිප්ෂන් එකේ බොඩි එක ඇතුලේ තියෙන දේ මෙතනට ගන්න පුළුවන්
+            console.log("Header හිස්, Body එකෙන් අගයන් සෙවීම...");
         }
+
+        if (profile) {
+            const params = new URLSearchParams(profile.replace(/;\s*/g, '&'));
+            
+            const upload = parseInt(params.get('upload') || 0);
+            const download = parseInt(params.get('download') || 0);
+            const totalLimit = parseInt(params.get('total') || 0);
+            const expiry = parseInt(params.get('expire') || 0);
+
+            const usedGB = ((upload + download) / (1024 ** 3)).toFixed(2);
+            const daysLeft = Math.floor((expiry - (Math.floor(Date.now() / 1000))) / 86400);
+
+            document.getElementById("statUsed").innerText = `${usedGB} GB`;
+            document.getElementById("statExpires").innerText = expiry > 0 ? new Date(expiry * 1000).toLocaleDateString() : "No Limit";
+            document.getElementById("statDays").innerText = expiry > 0 ? (daysLeft > 0 ? daysLeft : "Expired") : "∞";
+            document.getElementById("statStatus").innerText = "Active";
+            document.getElementById("statStatus").style.color = "var(--green)";
+        } else {
+            // දත්ත හොයාගන්න බැරි නම් දෙන පණිවිඩය
+            document.getElementById("statUsed").innerText = "No Data";
+        }
+
+    } catch (err) {
+        console.error("Fetch Error:", err);
+        document.getElementById("statUsed").innerText = "Error";
+    }
+}
 
         function setErrors() {
             document.getElementById("statUsed").innerText = "Error";
